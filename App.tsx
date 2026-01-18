@@ -108,7 +108,7 @@ const App: React.FC = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        const migratedData = parsed.map((item: any) => ({
+        const migratedData = (parsed || []).map((item: any) => ({
           ...item,
           objective: Array.isArray(item.objective) ? item.objective : [item.objective || '']
         }));
@@ -130,7 +130,7 @@ const App: React.FC = () => {
   const saveActivity = (activity: ActivityRecord) => {
     const sanitizedActivity = {
       ...activity,
-      reporterName: activity.reporterName.toUpperCase(),
+      reporterName: (activity.reporterName || '').toUpperCase(),
       reporterPosition: activity.reporterPosition
     };
     
@@ -379,10 +379,15 @@ const App: React.FC = () => {
               onBack={() => setView('list')} 
               onEdit={() => setView('edit')}
               onEnhance={async () => {
+                if (!selectedActivity) return;
                 setIsEnhancing(true);
-                const result = await enhanceReport(selectedActivity.title, selectedActivity.objective.join('\n'), selectedActivity.impact);
-                if (result) {
-                  const updated = { ...selectedActivity, objective: [result.enhancedObjective], impact: result.enhancedImpact };
+                const result = await enhanceReport(selectedActivity.title, (selectedActivity.objective || []).join('\n'), selectedActivity.impact || '');
+                if (result && result.enhancedObjective && result.enhancedImpact) {
+                  const updated: ActivityRecord = { 
+                    ...selectedActivity, 
+                    objective: [result.enhancedObjective], 
+                    impact: result.enhancedImpact 
+                  };
                   saveActivity(updated);
                 }
                 setIsEnhancing(false);
@@ -703,28 +708,35 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
     if (!reportRef.current) return;
     setIsDownloading(true);
     const element = reportRef.current;
+    
     const opt = {
       margin: 0,
-      filename: `OPR_${activity.title.replace(/\s+/g, '_')}.pdf`,
+      filename: `OPR_${(activity.title || '').replace(/\s+/g, '_')}.pdf`,
       image: { type: 'jpeg', quality: 1.0 },
       html2canvas: { scale: 3, useCORS: true, backgroundColor: '#ffffff' },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
+    
     try {
       // @ts-ignore
-      await html2pdf().from(element).set(opt).save();
+      if (typeof html2pdf !== 'undefined') {
+        // @ts-ignore
+        await html2pdf().from(element).set(opt).save();
+      } else {
+        console.warn("html2pdf library not found. Falling back to print.");
+        window.print();
+      }
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      window.print();
     } finally {
       setIsDownloading(false);
     }
   };
 
   const handlePrint = () => {
-    // Memastikan skrol berada di atas sebelum cetak untuk kedudukan preview yang stabil
-    window.scrollTo({ top: 0, behavior: 'instant' });
-    // Beri sedikit masa untuk browser stabilkan kedudukan sebelum buka dialog cetak
-    setTimeout(() => {
-      window.print();
-    }, 250);
+    window.scrollTo(0, 0);
+    window.print();
   };
 
   const getCategoryColor = (cat: ActivityCategory) => {
@@ -738,8 +750,8 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
   };
 
   const getObjectiveFontSize = (objectives: string[]) => {
-    const totalChars = objectives.reduce((acc, obj) => acc + (obj || '').length, 0);
-    const count = objectives.length;
+    const totalChars = (objectives || []).reduce((acc, obj) => acc + (obj || '').length, 0);
+    const count = (objectives || []).length;
     if (totalChars > 450 || count > 8) return 'text-[8px]';
     if (totalChars > 250 || count > 5) return 'text-[9px]';
     return 'text-[10px]';
@@ -830,7 +842,6 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
           </div>
 
           <div className="grid grid-cols-12 gap-8 flex-1 min-h-0 overflow-hidden px-2">
-            {/* Kolum Kiri */}
             <div className="col-span-6 flex flex-col gap-5 border-r border-slate-100 pr-6 overflow-hidden h-full">
               <section className="bg-indigo-50/80 p-5 rounded-[1.5rem] border border-indigo-100/50 shrink-0 shadow-inner">
                 <h2 className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
@@ -876,7 +887,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
                    <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full" /> OBJEKTIF
                 </h2>
                 <div className={`space-y-2.5 overflow-hidden flex-1 ${getObjectiveFontSize(activity.objective)}`}>
-                  {activity.objective.map((obj, i) => (
+                  {(activity.objective || []).map((obj, i) => (
                     <div key={i} className="flex gap-3 font-semibold text-slate-700 leading-normal group/obj">
                       <span className={`flex-shrink-0 w-6 h-6 bg-white text-indigo-600 rounded-md flex items-center justify-center font-black border border-indigo-100 group-hover/obj:bg-indigo-600 group-hover/obj:text-white transition-all scale-90 shadow-sm`}>{i+1}</span>
                       <p className="pt-0.5">{obj || '-'}</p>
@@ -905,7 +916,6 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
               </div>
             </div>
 
-            {/* Kolum Kanan */}
             <div className="col-span-6 flex flex-col h-full min-h-0 overflow-hidden">
               <div className="flex items-center justify-between mb-3 pb-1.5 border-b-2 border-slate-100 shrink-0">
                 <div className="flex items-center gap-2">
@@ -944,7 +954,6 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
             </div>
           </div>
 
-          {/* Footer Laporan */}
           <div className="mt-6 pt-5 relative border-t-2 border-slate-100 px-2 shrink-0">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-5">
                <div className="flex items-center gap-2">

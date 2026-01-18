@@ -1,13 +1,17 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 
 // Mengikut garis panduan: Gunakan new GoogleGenAI({ apiKey: process.env.API_KEY })
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-export const enhanceReport = async (title: string, currentObjective: string, impact: string) => {
+/**
+ * Fungsi untuk meningkatkan laporan menggunakan Gemini.
+ * Menggunakan gemini-3-pro-preview untuk tugasan penulisan profesional yang kompleks.
+ */
+export const enhanceReport = async (title: string, currentObjective: string, impact: string): Promise<{enhancedObjective: string, enhancedImpact: string} | null> => {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const response: GenerateContentResponse = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
       contents: `Tingkatkan laporan aktiviti ini (OPR - One Page Reporting). 
       Tajuk: ${title}
       Objektif Sedia Ada: ${currentObjective}
@@ -28,8 +32,11 @@ export const enhanceReport = async (title: string, currentObjective: string, imp
       }
     });
 
-    // Properti .text dipanggil secara langsung, bukan sebagai fungsi
-    return JSON.parse(response.text || "{}");
+    // Properti .text dipanggil secara langsung sebagai getter, bukan sebagai fungsi
+    const text = response.text;
+    if (!text) return null;
+    
+    return JSON.parse(text.trim());
   } catch (error) {
     console.error("Kegagalan peningkatan Gemini:", error);
     return null;
