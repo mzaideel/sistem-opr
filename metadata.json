@@ -1,0 +1,7 @@
+{
+  "name": "SISTEM OPR - One Page Reporting",
+  "description": "A comprehensive operational performance reporting system designed for educational and corporate environments, featuring dashboards, activity tracking, and AI-powered report enhancement.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
