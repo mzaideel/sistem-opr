@@ -1,14 +1,13 @@
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-
-// Mengikut garis panduan: Gunakan new GoogleGenAI({ apiKey: process.env.API_KEY })
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
  * Fungsi untuk meningkatkan laporan menggunakan Gemini.
- * Menggunakan gemini-3-pro-preview untuk tugasan penulisan profesional yang kompleks.
+ * Inisialisasi GoogleGenAI dilakukan mengikut garis panduan rasmi dengan process.env.API_KEY.
  */
 export const enhanceReport = async (title: string, currentObjective: string, impact: string): Promise<{enhancedObjective: string, enhancedImpact: string} | null> => {
+  // Always use the process.env.API_KEY directly for initialization.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
@@ -32,7 +31,7 @@ export const enhanceReport = async (title: string, currentObjective: string, imp
       }
     });
 
-    // Properti .text dipanggil secara langsung sebagai getter, bukan sebagai fungsi
+    // Access the extracted text output directly from the .text property.
     const text = response.text;
     if (!text) return null;
     

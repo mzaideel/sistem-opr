@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -32,7 +31,10 @@ import {
   Zap,
   Eye,
   CheckCircle2,
-  Verified
+  Verified,
+  Cloud,
+  CloudOff,
+  RefreshCw
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -49,6 +51,8 @@ import { enhanceReport } from './geminiService';
 
 const STORAGE_KEY = 'opr_system_v2_data';
 const SCHOOL_LOGO_URL = 'https://i.postimg.cc/DZ8qMpcH/SKLB2021-2-01.png';
+// URL Web App Google Script untuk storan online
+const SYNC_URL = 'https://script.google.com/macros/s/AKfycbxte10RParn_trjP0Xy0nR91JqfuFtFd6DTpfKevQUz6JOB0UWXJHtp3bg3wPBTTSZy/exec'; 
 
 const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
   return new Promise((resolve) => {
@@ -102,51 +106,93 @@ const App: React.FC = () => {
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPopup, setShowAdminPopup] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
 
+  // Muat data dari LocalStorage dan Cuba Sync
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const migratedData = (parsed || []).map((item: any) => ({
-          ...item,
-          objective: Array.isArray(item.objective) ? item.objective : [item.objective || '']
-        }));
-        setActivities(migratedData);
+    const loadData = async () => {
+      // 1. Muat dari Lokal dahulu (Pantas)
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          setActivities(JSON.parse(saved));
+        }
+      } catch (e) { console.error(e); }
+
+      // 2. Jika ada SYNC_URL, muat dari Cloud (Online)
+      if (SYNC_URL) {
+        setSyncStatus('syncing');
+        try {
+          const res = await fetch(SYNC_URL);
+          const cloudData = await res.json();
+          if (Array.isArray(cloudData)) {
+            setActivities(cloudData);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
+            setSyncStatus('success');
+          } else {
+            setSyncStatus('error');
+          }
+        } catch (e) {
+          console.error("Gagal sync online:", e);
+          setSyncStatus('error');
+        }
       }
-    } catch (e) {
-      console.error("Gagal memuatkan data:", e);
-    }
+    };
+    loadData();
   }, []);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(activities));
-    } catch (e) {
-      console.error("Had storan dikesan:", e);
-    }
-  }, [activities]);
-
-  const saveActivity = (activity: ActivityRecord) => {
+  // Simpan data ke Lokal dan Cloud
+  const saveActivity = async (activity: ActivityRecord) => {
     const sanitizedActivity = {
       ...activity,
       reporterName: (activity.reporterName || '').toUpperCase(),
-      reporterPosition: activity.reporterPosition
     };
     
-    const exists = activities.some(a => a.id === activity.id);
-    if (exists) {
-      setActivities(activities.map(a => a.id === activity.id ? sanitizedActivity : a));
-    } else {
-      setActivities([sanitizedActivity, ...activities]);
+    const newActivities = activities.some(a => a.id === activity.id)
+      ? activities.map(a => a.id === activity.id ? sanitizedActivity : a)
+      : [sanitizedActivity, ...activities];
+
+    setActivities(newActivities);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newActivities));
+
+    // Push ke Cloud jika ada SYNC_URL
+    if (SYNC_URL) {
+      setSyncStatus('syncing');
+      try {
+        await fetch(SYNC_URL, {
+          method: 'POST',
+          body: JSON.stringify(sanitizedActivity),
+          mode: 'no-cors' // Penting untuk Google Apps Script
+        });
+        setSyncStatus('success');
+      } catch (e) {
+        console.error("Gagal save ke cloud:", e);
+        setSyncStatus('error');
+      }
     }
+
     setSelectedActivity(sanitizedActivity);
     setView('details');
   };
 
-  const deleteActivity = (id: string) => {
+  const deleteActivity = async (id: string) => {
     if (confirm('Padam laporan ini secara kekal?')) {
-      setActivities(activities.filter(a => a.id !== id));
+      const updated = activities.filter(a => a.id !== id);
+      setActivities(updated);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+      if (SYNC_URL) {
+        setSyncStatus('syncing');
+        try {
+          // Biasanya GAS handle delete via parameter GET atau payload POST khusus
+          await fetch(`${SYNC_URL}?deleteId=${id}`, { method: 'GET', mode: 'no-cors' });
+          setSyncStatus('success');
+        } catch (e) { 
+          console.error("Gagal delete dari cloud:", e);
+          setSyncStatus('error');
+        }
+      }
+      
       if (selectedActivity?.id === id) setSelectedActivity(null);
     }
   };
@@ -211,6 +257,27 @@ const App: React.FC = () => {
       </div>
 
       <div className="p-6 mt-auto space-y-4">
+        {/* Sync Status Indicator */}
+        <div className={`p-4 rounded-2xl border flex items-center gap-3 transition-all duration-500 ${
+          syncStatus === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+          syncStatus === 'syncing' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' :
+          syncStatus === 'error' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' :
+          'bg-slate-800/50 border-slate-700/50 text-slate-500'
+        }`}>
+          {syncStatus === 'syncing' ? <RefreshCw className="animate-spin" size={18} /> : 
+           syncStatus === 'success' ? <Cloud size={18} /> : 
+           syncStatus === 'error' ? <CloudOff size={18} /> : <CloudOff size={18} />}
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-widest leading-none">Status Cloud</p>
+            <p className="text-[8px] font-bold uppercase mt-1 opacity-70 truncate">
+              {syncStatus === 'syncing' ? 'Menyelaras...' : 
+               syncStatus === 'success' ? 'Berhubung Online' : 
+               /* Fix: Use truthiness check to avoid comparison error with literal string constant */
+               !SYNC_URL ? 'Lokal (Mod Offline)' : 'Gagal Menyambung'}
+            </p>
+          </div>
+        </div>
+
         <div className="relative">
           {isAdmin && showAdminPopup && (
             <div className="absolute bottom-full left-0 w-full mb-3 p-2 bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-2 duration-200 z-50">
