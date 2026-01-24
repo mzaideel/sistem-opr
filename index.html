@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ms">
 <head>
@@ -17,7 +16,7 @@
     
     <style>
         body {
-            font-family: "Century Gothic", "CenturyGothic", "AppleGothic", sans-serif;
+            font-family: "Inter", sans-serif;
             background-color: #f8fafc;
             color: #1e293b;
         }
@@ -25,28 +24,82 @@
         /* Gaya Cetakan Profesional */
         @media print {
             .no-print { display: none !important; }
-            html, body { margin: 0 !important; padding: 0 !important; height: 297mm !important; width: 210mm !important; }
-            .pdf-container { position: absolute !important; top: 0 !important; left: 0 !important; width: 210mm !important; height: 297mm !important; padding: 12mm !important; border: none !important; box-shadow: none !important; transform: scale(1) !important; }
-            @page { size: A4; margin: 0; }
+            html, body { 
+                margin: 0 !important; 
+                padding: 0 !important; 
+                height: 297mm !important; 
+                width: 210mm !important;
+                background-color: white !important;
+            }
+            .pdf-wrapper {
+                padding: 0 !important;
+                margin: 0 !important;
+                display: block !important;
+            }
+            .pdf-container { 
+                position: static !important;
+                width: 210mm !important; 
+                height: 297mm !important; 
+                padding: 12mm !important; 
+                border: none !important; 
+                box-shadow: none !important; 
+                transform: scale(1) !important; 
+                margin: 0 !important;
+            }
+            @page { 
+                size: A4; 
+                margin: 0; 
+            }
         }
         
-        .pdf-container { width: 210mm; height: 297mm; overflow: hidden; background-color: white; border: 1px solid #e2e8f0; transform-origin: top center; }
-        .pdf-wrapper { display: flex; justify-content: center; align-items: flex-start; width: 100%; padding: 2rem 0; }
-        .clamp-impact { display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden; }
+        /* Bekas A4 Tegas */
+        .pdf-container { 
+            width: 210mm; 
+            height: 297mm; 
+            min-width: 210mm;
+            min-height: 297mm;
+            overflow: hidden; 
+            background-color: white; 
+            border: 1px solid #e2e8f0; 
+            transform-origin: top center; 
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            font-family: "Century Gothic", "CenturyGothic", "AppleGothic", sans-serif;
+        }
+
+        /* Wrapper untuk Penskalaan Paparan Skrin */
+        .pdf-wrapper { 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-start; 
+            width: 100%; 
+            padding: 2rem 0;
+            overflow: visible;
+        }
+
+        .clamp-impact { 
+            display: -webkit-box; 
+            -webkit-line-clamp: 7; 
+            -webkit-box-orient: vertical; 
+            overflow: hidden; 
+        }
+
+        /* Corak grid halus untuk rupa profesional */
+        .report-grid-pattern {
+            background-image: radial-gradient(#e2e8f0 0.5px, transparent 0.5px);
+            background-size: 20px 20px;
+        }
     </style>
 
     <script>
-        /**
-         * Menyediakan process.env untuk aplikasi.
-         * Jika dijalankan dalam Google Apps Script, ia akan mengambil kunci dari fungsi getGeminiApiKey().
-         */
         window.process = {
             env: {
                 API_KEY: "<?= typeof getGeminiApiKey !== 'undefined' ? getGeminiApiKey() : '' ?>"
             }
         };
         
-        // Fallback untuk pembangunan tempatan jika tag skrip di atas tidak diproses oleh GAS
         if (window.process.env.API_KEY && window.process.env.API_KEY.startsWith("<?")) {
             window.process.env.API_KEY = "";
         }
