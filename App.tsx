@@ -481,6 +481,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
   useEffect(() => {
     const handleResize = () => {
       if (wrapperRef.current) {
+        // Safety check to avoid scale 0 in embed
         const availableWidth = Math.max(wrapperRef.current.offsetWidth, 320) - 32; 
         const targetWidth = 210 * 3.7795275591; // 210mm in px @ 96dpi
         setScale(Math.min(1, availableWidth / targetWidth));
@@ -488,6 +489,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
     };
     handleResize();
     window.addEventListener('resize', handleResize);
+    // Extra delay for iframe loading
     const timer = setTimeout(handleResize, 500);
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -536,6 +538,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
   };
 
   const handlePrint = () => {
+    // Force focus for iframe environments
     window.focus();
     window.print();
   };
@@ -589,9 +592,10 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
   };
 
   const getReporterFontSize = (name: string) => {
-    if (name.length > 40) return 'text-xs';
-    if (name.length > 30) return 'text-sm';
-    return 'text-base';
+    if (name.length > 45) return '0.65rem';
+    if (name.length > 35) return '0.75rem';
+    if (name.length > 25) return '0.875rem';
+    return '1rem';
   };
 
   const a4HeightPx = 297 * 3.7795275591;
@@ -599,6 +603,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
 
   return (
     <div className="flex flex-col h-full overflow-visible">
+      {/* Sticky Action Bar for Embed Stability */}
       <div className="no-print action-bar">
         <div className="flex flex-wrap items-center justify-between gap-4 px-4 md:px-0">
           <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-black hover:text-indigo-600 group transition-colors z-[60]">
@@ -707,12 +712,18 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
                 <p className="font-bold italic leading-relaxed text-slate-100 font-sans auto-font" style={{ fontSize: getImpactFontSize(activity.impact) }}>"{activity.impact || 'Tiada refleksi yang dinyatakan.'}"</p>
               </section>
 
+              {/* REPORTER SECTION FIXED FOR SINGLE LINE */}
               <div className="mt-auto pt-6 flex items-center gap-4 shrink-0 overflow-hidden">
                 <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 shadow-sm shrink-0"><ShieldCheck size={28} /></div>
                 <div className="min-w-0 flex-1">
                   <span className="text-[7px] font-black text-slate-400 tracking-widest block mb-0.5 uppercase">DISEDIAKAN OLEH,</span>
-                  <p className={`font-black ${getReporterFontSize(activity.reporterName)} text-slate-900 uppercase leading-none tracking-tight whitespace-nowrap overflow-hidden truncate`}>{activity.reporterName}</p>
-                  <p className="text-[9px] text-slate-500 font-black uppercase mt-1 tracking-tighter overflow-hidden truncate">{activity.reporterPosition}</p>
+                  <p 
+                    className="font-black text-slate-900 uppercase leading-none tracking-tight whitespace-nowrap truncate"
+                    style={{ fontSize: getReporterFontSize(activity.reporterName) }}
+                  >
+                    {activity.reporterName}
+                  </p>
+                  <p className="text-[9px] text-slate-500 font-black uppercase mt-1 tracking-tighter truncate">{activity.reporterPosition}</p>
                 </div>
               </div>
             </div>
