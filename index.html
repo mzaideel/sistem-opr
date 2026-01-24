@@ -19,8 +19,6 @@
             font-family: "Inter", sans-serif;
             background-color: #f8fafc;
             color: #1e293b;
-            margin: 0;
-            padding: 0;
         }
 
         /* Gaya Cetakan Profesional */
@@ -32,20 +30,14 @@
                 height: 297mm !important; 
                 width: 210mm !important;
                 background-color: white !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
             }
             .pdf-wrapper {
                 padding: 0 !important;
                 margin: 0 !important;
                 display: block !important;
-                width: 210mm !important;
-                height: 297mm !important;
             }
             .pdf-container { 
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
+                position: static !important;
                 width: 210mm !important; 
                 height: 297mm !important; 
                 padding: 12mm !important; 
@@ -53,9 +45,6 @@
                 box-shadow: none !important; 
                 transform: scale(1) !important; 
                 margin: 0 !important;
-                page-break-after: avoid !important;
-                page-break-inside: avoid !important;
-                overflow: hidden !important;
             }
             @page { 
                 size: A4; 
@@ -63,7 +52,7 @@
             }
         }
         
-        /* Bekas A4 Tegas - Menggunakan Inter untuk konsistensi dengan Web */
+        /* Bekas A4 Tegas */
         .pdf-container { 
             width: 210mm; 
             height: 297mm; 
@@ -77,8 +66,7 @@
             display: flex;
             flex-direction: column;
             box-sizing: border-box;
-            font-family: "Inter", sans-serif;
-            position: relative;
+            font-family: "Century Gothic", "CenturyGothic", "AppleGothic", sans-serif;
         }
 
         /* Wrapper untuk Penskalaan Paparan Skrin */
@@ -106,12 +94,15 @@
     </style>
 
     <script>
-        // Placeholder for compatibility
         window.process = {
             env: {
-                API_KEY: ""
+                API_KEY: "<?= typeof getGeminiApiKey !== 'undefined' ? getGeminiApiKey() : '' ?>"
             }
         };
+        
+        if (window.process.env.API_KEY && window.process.env.API_KEY.startsWith("<?")) {
+            window.process.env.API_KEY = "";
+        }
     </script>
 
     <script type="importmap">

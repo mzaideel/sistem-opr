@@ -33,7 +33,7 @@ import {
   CloudOff,
   RefreshCw,
   Zap,
-  Save
+  Sparkles
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -46,12 +46,11 @@ import {
   Cell
 } from 'recharts';
 import { ActivityRecord, ViewState, ActivityCategory } from './types';
-
-// Fix: Declare html2pdf for TypeScript since it is loaded via a global script (CDN)
-declare const html2pdf: any;
+import { enhanceReport } from './geminiService';
 
 const STORAGE_KEY = 'opr_system_v2_data';
 const SCHOOL_LOGO_URL = 'https://i.postimg.cc/DZ8qMpcH/SKLB2021-2-01.png';
+// Menggunakan URL Web App Google Script yang disediakan oleh pengguna
 const SYNC_URL = 'https://script.google.com/macros/s/AKfycbxQVq31gNdQQEAAgIF_8-OzLO58WEALB0Bqe0qXZLhbynCrAgfdleFSTBhEr4b1-N5f/exec'; 
 
 const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
@@ -82,13 +81,14 @@ const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promis
   });
 };
 
-const formatDateShort = (dateStr: string) => {
+const formatDateMalay = (dateStr: string) => {
   if (!dateStr) return '';
   const date = new Date(dateStr);
-  const d = String(date.getDate()).padStart(2, '0');
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const y = date.getFullYear();
-  return `${d}/${m}/${y}`;
+  const months = [
+    'Januari', 'Februari', 'Mac', 'April', 'Mei', 'Jun',
+    'Julai', 'Ogos', 'September', 'Oktober', 'November', 'Disember'
+  ];
+  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 };
 
 const App: React.FC = () => {
@@ -132,6 +132,7 @@ const App: React.FC = () => {
   }, []);
 
   const saveActivity = async (activity: ActivityRecord) => {
+    // Memastikan ID dikekalkan jika mengedit supaya backend Google Script boleh mencari dan mengemaskini baris tersebut
     const sanitizedActivity = {
       ...activity,
       id: activity.id || Date.now().toString(),
@@ -149,6 +150,7 @@ const App: React.FC = () => {
     if (SYNC_URL) {
       setSyncStatus('syncing');
       try {
+        // Menggunakan mode no-cors untuk mengelakkan ralat CORS dengan Google Apps Script
         await fetch(SYNC_URL, {
           method: 'POST',
           body: JSON.stringify(sanitizedActivity),
@@ -390,7 +392,7 @@ const ActivityList: React.FC<{ activities: ActivityRecord[]; onView: (a: Activit
             <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase rounded-lg mb-1.5 inline-block">{a.category}</span>
             <h4 className="font-black text-slate-900 text-xl uppercase tracking-tight leading-tight">{a.title}</h4>
             <div className="flex flex-wrap justify-center md:justify-start gap-4 text-xs font-bold text-slate-400 mt-2">
-              <span className="flex items-center gap-1.5 uppercase"><Calendar size={14} /> {formatDateShort(a.date)}</span>
+              <span className="flex items-center gap-1.5 uppercase"><Calendar size={14} /> {formatDateMalay(a.date)}</span>
               <span className="flex items-center gap-1.5 uppercase"><MapPin size={14} /> {a.venue || '-'}</span>
             </div>
           </div>
@@ -410,6 +412,7 @@ const ActivityForm: React.FC<{ onSave: (a: ActivityRecord) => void; initialData?
     title: '', date: new Date().toISOString().split('T')[0], time: '', venue: '', category: 'Kurikulum', objective: [''], impact: '', photos: [], reporterName: '', reporterPosition: '' 
   });
   const [isUploading, setIsUploading] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -430,10 +433,42 @@ const ActivityForm: React.FC<{ onSave: (a: ActivityRecord) => void; initialData?
     }
   };
 
+  const handleAI= async () => {
+    if (!formData.title) return alert("Sila masukkan tajuk program dahulu.");
+    setIsEnhancing(true);
+    try {
+      const result = await enhanceReport(
+        formData.title, 
+        formData.objective?.join(', ') || '', 
+        formData.impact || ''
+      );
+      if (result) {
+        setFormData({
+          ...formData,
+          objective: result.enhancedObjective.split('.').filter(s => s.trim()).map(s => s.trim()),
+          impact: result.enhancedImpact
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(formData as ActivityRecord); }} className="max-w-4xl mx-auto bg-white p-10 md:p-14 rounded-[3rem] border border-slate-200 shadow-xl space-y-10 relative">
+    <form onSubmit={(e) => { e.preventDefault(); onSave(formData as ActivityRecord); }} className="max-w-4xl mx-auto bg-white p-10 md:p-14 rounded-[3rem] border border-slate-200 shadow-xl space-y-10">
       <div className="flex justify-between items-start">
         <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Daftar Laporan OPR</h3>
+        <button 
+          type="button" 
+          onClick={handleAI}
+          disabled={isEnhancing}
+          className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg hover:scale-105 transition-all"
+        >
+          {isEnhancing ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
+          {isEnhancing ? 'PENYEDIAAN AI...' : 'TINGKATKAN DENGAN AI'}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -447,14 +482,7 @@ const ActivityForm: React.FC<{ onSave: (a: ActivityRecord) => void; initialData?
         <FormGroup label="Jawatan Pelapor"><input required className="w-full px-6 py-4 bg-slate-50 border rounded-2xl font-bold outline-none" value={formData.reporterPosition} onChange={e => setFormData({...formData, reporterPosition: e.target.value})} placeholder="cth: Guru Penyelaras ICT" /></FormGroup>
       </div>
       <FormGroup label="Objektif (Satu baris satu objektif)"><textarea className="w-full px-6 py-4 bg-slate-50 border rounded-2xl font-medium h-32 outline-none" value={formData.objective?.join('\n')} onChange={e => setFormData({...formData, objective: e.target.value.split('\n')})} /></FormGroup>
-      <FormGroup label="Impak & Refleksi">
-        <textarea 
-          className="w-full px-6 py-4 bg-slate-900 text-white rounded-2xl font-medium h-40 outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all" 
-          value={formData.impact} 
-          onChange={e => setFormData({...formData, impact: e.target.value})} 
-          placeholder="Tulis refleksi program di sini..."
-        />
-      </FormGroup>
+      <FormGroup label="Impak & Refleksi"><textarea className="w-full px-6 py-4 bg-slate-900 text-white rounded-2xl font-medium h-40 outline-none" value={formData.impact} onChange={e => setFormData({...formData, impact: e.target.value})} /></FormGroup>
       <div className="space-y-4">
         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Foto Evidens (Maks 4)</label>
         <div className="grid grid-cols-4 gap-4">
@@ -472,24 +500,9 @@ const ActivityForm: React.FC<{ onSave: (a: ActivityRecord) => void; initialData?
           )}
         </div>
       </div>
-      
-      {/* Action Buttons as Icons */}
-      <div className="flex justify-end gap-4 pt-6">
-        <button 
-          type="button" 
-          onClick={onCancel} 
-          className="p-5 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200 transition-all shadow-md"
-          title="Batal"
-        >
-          <X size={28} />
-        </button>
-        <button 
-          type="submit" 
-          className="p-5 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-all shadow-lg"
-          title="Simpan Laporan"
-        >
-          <Save size={28} />
-        </button>
+      <div className="flex gap-4 pt-6">
+        <button type="submit" className="flex-[2] bg-indigo-600 text-white font-black py-5 rounded-2xl text-lg uppercase tracking-widest shadow-xl">SIMPAN LAPORAN</button>
+        <button type="button" onClick={onCancel} className="flex-1 bg-slate-100 text-slate-600 font-bold py-5 rounded-2xl uppercase tracking-widest">BATAL</button>
       </div>
     </form>
   );
@@ -525,27 +538,14 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
       margin: 0, 
       filename: `OPR_${activity.title.replace(/\s+/g, '_')}.pdf`, 
       image: { type: 'jpeg', quality: 1.0 }, 
-      html2canvas: { 
-        scale: 4, 
-        useCORS: true, 
-        backgroundColor: '#ffffff',
-        windowWidth: 794,
-        windowHeight: 1123
-      }, 
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true } 
+      html2canvas: { scale: 3, useCORS: true, backgroundColor: '#ffffff' }, 
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
     };
     try {
-      if (typeof html2pdf !== 'undefined') {
-        await html2pdf().from(reportRef.current).set(opt).save();
-      } else {
-        window.print();
-      }
-    } catch (err) { 
-      console.error(err);
-      window.print(); 
-    } finally { 
-      setIsDownloading(false); 
-    }
+      // @ts-ignore
+      if (typeof html2pdf !== 'undefined') await html2pdf().from(reportRef.current).set(opt).save();
+      else window.print();
+    } catch (err) { window.print(); } finally { setIsDownloading(false); }
   };
 
   const getReportNumber = () => {
@@ -553,8 +553,10 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
     const sorted = [...allActivities]
       .filter(a => new Date(a.date).getFullYear() === year)
       .sort((a, b) => {
+        // Susun mengikut tarikh aktiviti (dahulu ke terkini)
         const dateComparison = a.date.localeCompare(b.date);
         if (dateComparison !== 0) return dateComparison;
+        // Jika tarikh sama, susun mengikut waktu dicipta
         return (a.createdAt || 0) - (b.createdAt || 0);
       });
     const index = sorted.findIndex(a => a.id === activity.id) + 1;
@@ -579,30 +581,17 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
       <div className="no-print flex flex-wrap items-center justify-between gap-4">
         <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-black hover:text-indigo-600 group transition-colors">
           <div className="p-2 bg-white rounded-xl border group-hover:bg-indigo-50 shadow-sm"><ChevronLeft size={20} /></div>
-          KEMBALI
+          KEMBALI KE SENARAI
         </button>
-        <div className="flex gap-4">
-          <button 
-            onClick={onEdit} 
-            className="p-4 bg-white text-orange-600 border border-orange-200 rounded-2xl hover:bg-orange-50 transition-all shadow-sm"
-            title="Edit Laporan"
-          >
-            <Edit3 size={22} />
+        <div className="flex gap-3">
+          <button onClick={onEdit} className="px-6 py-4 bg-white text-orange-600 border border-orange-200 rounded-2xl text-xs font-black flex items-center gap-2 shadow-sm">
+            <Edit3 size={18} /> EDIT LAPORAN
           </button>
-          <button 
-            disabled={isDownloading} 
-            onClick={handleDownloadPDF} 
-            className="p-4 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-lg"
-            title="Muat Turun PDF"
-          >
-            {isDownloading ? <Loader2 className="animate-spin" size={22} /> : <Download size={22} />}
+          <button disabled={isDownloading} onClick={handleDownloadPDF} className="px-6 py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg">
+            {isDownloading ? <Loader2 className="animate-spin" size={18} /> : <><Download size={18} /> MUAT TURUN PDF</>}
           </button>
-          <button 
-            onClick={() => window.print()} 
-            className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-lg"
-            title="Cetak Laporan"
-          >
-            <Printer size={22} />
+          <button onClick={() => window.print()} className="px-6 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg">
+            <Printer size={18} /> CETAK LAPORAN
           </button>
         </div>
       </div>
@@ -654,7 +643,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
                     </div>
                     <div className="min-w-0">
                       <span className="block text-[7px] font-black text-slate-400 tracking-widest uppercase">TARIKH</span>
-                      <span className="text-[10px] font-bold text-slate-800 block truncate">{formatDateShort(activity.date)}</span>
+                      <span className="text-[10px] font-bold text-slate-800 block truncate">{formatDateMalay(activity.date)}</span>
                     </div>
                   </div>
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-3">
