@@ -565,6 +565,26 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
     }
   };
 
+  // Heuristic Font Scaling Functions
+  const getTitleFontSize = (text: string) => {
+    if (text.length > 120) return '0.875rem'; // text-sm
+    if (text.length > 80) return '1.125rem'; // text-lg
+    return '1.25rem'; // text-xl
+  };
+
+  const getObjectiveFontSize = (items: string[]) => {
+    const totalLength = items.join('').length;
+    if (items.length > 10 || totalLength > 450) return '7px';
+    if (items.length > 6 || totalLength > 300) return '8px';
+    return '10px';
+  };
+
+  const getImpactFontSize = (text: string) => {
+    if (text.length > 800) return '8px';
+    if (text.length > 500) return '9px';
+    return '11px';
+  };
+
   const a4HeightPx = 297 * 3.7795275591;
   const currentYear = new Date().getFullYear();
 
@@ -637,7 +657,12 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
                 <h2 className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${getCategoryColor(activity.category)}`} /> TAJUK PROGRAM
                 </h2>
-                <p className="text-xl font-black text-slate-900 leading-[1.2] uppercase tracking-tight line-clamp-2">{activity.title}</p>
+                <p 
+                  className="font-black text-slate-900 leading-[1.2] uppercase tracking-tight"
+                  style={{ fontSize: getTitleFontSize(activity.title) }}
+                >
+                  {activity.title}
+                </p>
               </section>
 
               <div className="flex flex-col gap-3 shrink-0">
@@ -687,11 +712,11 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
                 <h2 className="text-[9px] font-black text-indigo-600 tracking-widest uppercase mb-4 flex items-center gap-2 shrink-0">
                   <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full" /> OBJEKTIF PROGRAM
                 </h2>
-                <div className="space-y-3 flex-1 overflow-hidden">
+                <div className="space-y-2 flex-1 overflow-hidden">
                   {(activity.objective || []).map((obj, i) => (
-                    <div key={i} className="flex gap-3 text-[10px] font-semibold text-slate-700 leading-normal">
-                      <span className="w-5 h-5 bg-white text-indigo-600 rounded flex items-center justify-center font-black border border-indigo-100 shrink-0 shadow-sm">{i+1}</span>
-                      <p className="pt-0.5">{obj}</p>
+                    <div key={i} className="flex gap-3 text-slate-700 font-semibold leading-tight">
+                      <span className="w-5 h-5 bg-white text-indigo-600 rounded flex items-center justify-center font-black border border-indigo-100 shrink-0 shadow-sm text-[8px]">{i+1}</span>
+                      <p style={{ fontSize: getObjectiveFontSize(activity.objective), paddingTop: '1px' }}>{obj}</p>
                     </div>
                   ))}
                 </div>
@@ -700,7 +725,12 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
               <section className="bg-slate-900 text-white p-6 rounded-[2rem] border-l-[4px] border-indigo-500 relative overflow-hidden shadow-xl shrink-0">
                 <Quote className="absolute top-4 right-4 text-white/5" size={48} />
                 <h2 className="text-[9px] font-black text-indigo-400 tracking-widest uppercase mb-2">IMPAK & REFLEKSI</h2>
-                <p className="text-[11px] font-bold italic leading-relaxed text-slate-100 font-serif line-clamp-6">"{activity.impact || 'Tiada refleksi yang dinyatakan.'}"</p>
+                <p 
+                  className="font-bold italic leading-relaxed text-slate-100 font-sans"
+                  style={{ fontSize: getImpactFontSize(activity.impact) }}
+                >
+                  "{activity.impact || 'Tiada refleksi yang dinyatakan.'}"
+                </p>
               </section>
 
               <div className="mt-auto pt-6 flex items-center gap-4 shrink-0">
@@ -744,7 +774,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
               </div>
             </div>
             <div className="text-center">
-              <p className="text-[11px] font-black text-indigo-600 tracking-[0.4em] uppercase">#SKLaksianTERBAIK</p>
+              <p className="text-xs font-black text-indigo-600 tracking-[0.4em] uppercase">#SKLaksianTERBAIK</p>
               <div className="h-0.5 bg-indigo-50 w-full mt-2 rounded-full overflow-hidden"><div className="h-full w-2/3 bg-indigo-600 rounded-full mx-auto" /></div>
             </div>
             <div className="text-right flex flex-col items-end gap-1">
