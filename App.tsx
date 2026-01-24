@@ -18,19 +18,14 @@ import {
   Menu,
   Download,
   Loader2,
-  Filter,
   ChevronLeft,
   Lock,
   ShieldCheck,
-  LogOut,
-  ChevronDown,
-  Plus,
   Quote,
   Eye,
   CheckCircle2,
   Verified,
   Cloud,
-  CloudOff,
   RefreshCw,
   Zap,
   Save
@@ -47,7 +42,6 @@ import {
 } from 'recharts';
 import { ActivityRecord, ViewState, ActivityCategory } from './types';
 
-// Fix: Declare html2pdf for TypeScript since it is loaded via a global script (CDN)
 declare const html2pdf: any;
 
 const STORAGE_KEY = 'opr_system_v2_data';
@@ -466,23 +460,9 @@ const ActivityForm: React.FC<{ onSave: (a: ActivityRecord) => void; initialData?
         </div>
       </div>
       
-      {/* Tombol Simpan & Batal sebagai Ikon Sahaja */}
       <div className="flex justify-end gap-4 pt-6">
-        <button 
-          type="button" 
-          onClick={onCancel} 
-          className="p-5 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200 transition-all shadow-md flex items-center justify-center"
-          title="Batal"
-        >
-          <X size={28} />
-        </button>
-        <button 
-          type="submit" 
-          className="p-5 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-all shadow-lg flex items-center justify-center"
-          title="Simpan Laporan"
-        >
-          <Save size={28} />
-        </button>
+        <button type="button" onClick={onCancel} className="p-5 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200 transition-all shadow-md flex items-center justify-center" title="Batal"><X size={28} /></button>
+        <button type="submit" className="p-5 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-all shadow-lg flex items-center justify-center" title="Simpan Laporan"><Save size={28} /></button>
       </div>
     </form>
   );
@@ -514,20 +494,28 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return;
     setIsDownloading(true);
-    // Strict A4 single page configuration
+
+    // CRITICAL: Temporarily reset transformation and scaling for high-fidelity capture
+    const originalTransform = reportRef.current.style.transform;
+    const originalMarginBottom = reportRef.current.style.marginBottom;
+    
+    reportRef.current.style.transform = 'scale(1)';
+    reportRef.current.style.marginBottom = '0';
+
     const opt = { 
       margin: 0, 
-      filename: `OPR_${activity.title.replace(/\s+/g, '_')}.pdf`, 
+      filename: `OPR_${activity.title.replace(/\s+/g, '_')}_${formatDateShort(activity.date).replace(/\//g, '-')}.pdf`, 
       image: { type: 'jpeg', quality: 1.0 }, 
       html2canvas: { 
-        scale: 4, 
+        scale: 4, // High Resolution DPI 300 equivalent
         useCORS: true, 
         backgroundColor: '#ffffff',
-        windowWidth: 794,
-        windowHeight: 1123
+        letterRendering: true,
+        logging: false
       }, 
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true } 
     };
+
     try {
       if (typeof html2pdf !== 'undefined') {
         await html2pdf().from(reportRef.current).set(opt).save();
@@ -538,6 +526,9 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
       console.error(err);
       window.print(); 
     } finally { 
+      // RESTORE display scaling
+      reportRef.current.style.transform = originalTransform;
+      reportRef.current.style.marginBottom = originalMarginBottom;
       setIsDownloading(false); 
     }
   };
@@ -565,6 +556,32 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
     }
   };
 
+  // Heuristic Font Scaling for Single Page Integrity
+  const getTitleFontSize = (text: string) => {
+    const len = text.length;
+    if (len > 180) return '0.75rem';
+    if (len > 120) return '0.875rem';
+    if (len > 80) return '1.125rem';
+    return '1.25rem';
+  };
+
+  const getObjectiveFontSize = (items: string[]) => {
+    const totalChars = items.join('').length;
+    const count = items.length;
+    if (count > 15 || totalChars > 800) return '6.5px';
+    if (count > 10 || totalChars > 500) return '8px';
+    if (count > 6 || totalChars > 300) return '9.5px';
+    return '11px';
+  };
+
+  const getImpactFontSize = (text: string) => {
+    const len = text.length;
+    if (len > 1200) return '7.5px';
+    if (len > 800) return '8.5px';
+    if (len > 500) return '10px';
+    return '11.5px';
+  };
+
   const a4HeightPx = 297 * 3.7795275591;
   const currentYear = new Date().getFullYear();
 
@@ -576,38 +593,21 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
           KEMBALI
         </button>
         <div className="flex gap-4">
-          <button 
-            onClick={onEdit} 
-            className="p-4 bg-white text-orange-600 border border-orange-200 rounded-2xl hover:bg-orange-50 transition-all shadow-sm flex items-center justify-center"
-            title="Edit Laporan"
-          >
-            <Edit3 size={22} />
-          </button>
-          <button 
-            disabled={isDownloading} 
-            onClick={handleDownloadPDF} 
-            className="p-4 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-lg flex items-center justify-center"
-            title="Muat Turun PDF"
-          >
+          <button onClick={onEdit} className="p-4 bg-white text-orange-600 border border-orange-200 rounded-2xl hover:bg-orange-50 transition-all shadow-sm flex items-center justify-center" title="Edit Laporan"><Edit3 size={22} /></button>
+          <button disabled={isDownloading} onClick={handleDownloadPDF} className="p-4 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-lg flex items-center justify-center" title="Muat Turun PDF">
             {isDownloading ? <Loader2 className="animate-spin" size={22} /> : <Download size={22} />}
           </button>
-          <button 
-            onClick={() => window.print()} 
-            className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center"
-            title="Cetak Laporan"
-          >
-            <Printer size={22} />
-          </button>
+          <button onClick={() => window.print()} className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center" title="Cetak Laporan"><Printer size={22} /></button>
         </div>
       </div>
 
       <div ref={wrapperRef} className="pdf-wrapper" style={{ minHeight: `${a4HeightPx * scale}px` }}>
         <div 
           ref={reportRef} 
-          className="pdf-container report-grid-pattern p-12"
+          className="pdf-container report-grid-pattern p-12 bg-white"
           style={{ transform: `scale(${scale})`, marginBottom: `-${(1 - scale) * a4HeightPx}px` }}
         >
-          {/* Header */}
+          {/* Header Section */}
           <div className="relative mb-8 pb-6 border-b-2 border-slate-900/10 flex items-center gap-8 shrink-0">
             <img src={SCHOOL_LOGO_URL} alt="Logo" className="h-24 w-auto object-contain shrink-0" />
             <div className="flex-1">
@@ -632,50 +632,41 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
           </div>
 
           <div className="grid grid-cols-12 gap-8 flex-1 overflow-hidden min-h-0">
+            {/* Left Column */}
             <div className="col-span-6 border-r border-slate-100 pr-8 space-y-6 flex flex-col min-h-0">
               <section className="bg-indigo-50/80 p-5 rounded-[1.5rem] border border-indigo-100/50 shrink-0">
                 <h2 className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${getCategoryColor(activity.category)}`} /> TAJUK PROGRAM
                 </h2>
-                <p className="text-xl font-black text-slate-900 leading-[1.2] uppercase tracking-tight line-clamp-2">{activity.title}</p>
+                <p className="font-black text-slate-900 leading-[1.2] uppercase tracking-tight auto-font" style={{ fontSize: getTitleFontSize(activity.title) }}>{activity.title}</p>
               </section>
 
               <div className="flex flex-col gap-3 shrink-0">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                      <Calendar size={16} />
-                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0"><Calendar size={16} /></div>
                     <div className="min-w-0">
                       <span className="block text-[7px] font-black text-slate-400 tracking-widest uppercase">TARIKH</span>
                       <span className="text-[10px] font-bold text-slate-800 block truncate">{formatDateShort(activity.date)}</span>
                     </div>
                   </div>
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                      <Clock size={16} />
-                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0"><Clock size={16} /></div>
                     <div className="min-w-0">
                       <span className="block text-[7px] font-black text-slate-400 tracking-widest uppercase">MASA</span>
                       <span className="text-[10px] font-bold text-slate-800 block truncate">{activity.time || '-'}</span>
                     </div>
                   </div>
                 </div>
-
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                    <Users size={16} />
-                  </div>
+                  <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0"><Users size={16} /></div>
                   <div className="min-w-0">
                     <span className="block text-[7px] font-black text-slate-400 tracking-widest uppercase">SASARAN / PESERTA</span>
                     <span className="text-[10px] font-bold text-slate-800 block truncate">{activity.participantsCount || '-'}</span>
                   </div>
                 </div>
-
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                    <MapPin size={16} />
-                  </div>
+                  <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0"><MapPin size={16} /></div>
                   <div className="min-w-0">
                     <span className="block text-[7px] font-black text-slate-400 tracking-widest uppercase">TEMPAT</span>
                     <span className="text-[10px] font-bold text-slate-800 block truncate">{activity.venue || '-'}</span>
@@ -687,11 +678,11 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
                 <h2 className="text-[9px] font-black text-indigo-600 tracking-widest uppercase mb-4 flex items-center gap-2 shrink-0">
                   <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full" /> OBJEKTIF PROGRAM
                 </h2>
-                <div className="space-y-3 flex-1 overflow-hidden">
+                <div className="space-y-2 flex-1 overflow-hidden">
                   {(activity.objective || []).map((obj, i) => (
-                    <div key={i} className="flex gap-3 text-[10px] font-semibold text-slate-700 leading-normal">
-                      <span className="w-5 h-5 bg-white text-indigo-600 rounded flex items-center justify-center font-black border border-indigo-100 shrink-0 shadow-sm">{i+1}</span>
-                      <p className="pt-0.5">{obj}</p>
+                    <div key={i} className="flex gap-3 text-slate-700 font-semibold leading-tight">
+                      <span className="w-4 h-4 bg-white text-indigo-600 rounded flex items-center justify-center font-black border border-indigo-100 shrink-0 shadow-sm text-[8px]">{i+1}</span>
+                      <p className="auto-font" style={{ fontSize: getObjectiveFontSize(activity.objective), paddingTop: '1px' }}>{obj}</p>
                     </div>
                   ))}
                 </div>
@@ -700,7 +691,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
               <section className="bg-slate-900 text-white p-6 rounded-[2rem] border-l-[4px] border-indigo-500 relative overflow-hidden shadow-xl shrink-0">
                 <Quote className="absolute top-4 right-4 text-white/5" size={48} />
                 <h2 className="text-[9px] font-black text-indigo-400 tracking-widest uppercase mb-2">IMPAK & REFLEKSI</h2>
-                <p className="text-[11px] font-bold italic leading-relaxed text-slate-100 font-serif line-clamp-6">"{activity.impact || 'Tiada refleksi yang dinyatakan.'}"</p>
+                <p className="font-bold italic leading-relaxed text-slate-100 font-sans auto-font" style={{ fontSize: getImpactFontSize(activity.impact) }}>"{activity.impact || 'Tiada refleksi yang dinyatakan.'}"</p>
               </section>
 
               <div className="mt-auto pt-6 flex items-center gap-4 shrink-0">
@@ -713,6 +704,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
               </div>
             </div>
 
+            {/* Right Column (Visual Evidence) */}
             <div className="col-span-6 flex flex-col h-full min-h-0 overflow-hidden">
               <div className="flex items-center justify-between mb-4 pb-2 border-b-2 border-slate-100 shrink-0">
                 <h2 className="text-[10px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><div className="w-1 h-5 bg-slate-900 rounded-full" /> EVIDENS VISUAL PROGRAM</h2>
@@ -722,7 +714,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
                 {[0, 1, 2, 3].map(idx => (
                   <div key={idx} className="bg-slate-50 rounded-[1.5rem] overflow-hidden border border-slate-200 relative group flex-1 min-h-0 shadow-sm">
                     {activity.photos?.[idx] ? (
-                      <img src={activity.photos[idx].url} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                      <img src={activity.photos[idx].url} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
                     ) : (
                       <div className="w-full h-full flex flex-col items-center justify-center text-slate-200 opacity-50">
                         <Camera size={32} strokeWidth={1} />
@@ -735,6 +727,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
             </div>
           </div>
 
+          {/* Footer Section */}
           <div className="mt-8 pt-6 border-t-2 border-slate-100 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-4">
               <div className="p-2.5 bg-slate-900 rounded-xl shadow-lg"><Award size={18} className="text-white" /></div>
@@ -744,11 +737,11 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
               </div>
             </div>
             <div className="text-center">
-              <p className="text-[11px] font-black text-indigo-600 tracking-[0.4em] uppercase">#SKLaksianTERBAIK</p>
+              <p className="text-xs font-black text-indigo-600 tracking-[0.4em] uppercase">#SKLaksianTERBAIK</p>
               <div className="h-0.5 bg-indigo-50 w-full mt-2 rounded-full overflow-hidden"><div className="h-full w-2/3 bg-indigo-600 rounded-full mx-auto" /></div>
             </div>
             <div className="text-right flex flex-col items-end gap-1">
-              <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 tracking-widest uppercase leading-none"><CheckCircle2 size={12} className="text-emerald-500" /> SISTEM OPR V2.0</div>
+              <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 tracking-widest uppercase leading-none"><CheckCircle2 size={12} className="text-emerald-500" /> SISTEM OPR V2.5</div>
               <p className="text-[8px] text-slate-300 font-bold italic uppercase tracking-tighter">DIJANA: {new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
             </div>
           </div>
