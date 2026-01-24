@@ -32,8 +32,7 @@ import {
   Cloud,
   CloudOff,
   RefreshCw,
-  Zap,
-  Save
+  Zap
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -46,12 +45,14 @@ import {
   Cell
 } from 'recharts';
 import { ActivityRecord, ViewState, ActivityCategory } from './types';
+import { generateAIImpact } from './geminiService';
 
 // Fix: Declare html2pdf for TypeScript since it is loaded via a global script (CDN)
 declare const html2pdf: any;
 
 const STORAGE_KEY = 'opr_system_v2_data';
 const SCHOOL_LOGO_URL = 'https://i.postimg.cc/DZ8qMpcH/SKLB2021-2-01.png';
+// Menggunakan URL Web App Google Script yang disediakan oleh pengguna
 const SYNC_URL = 'https://script.google.com/macros/s/AKfycbxQVq31gNdQQEAAgIF_8-OzLO58WEALB0Bqe0qXZLhbynCrAgfdleFSTBhEr4b1-N5f/exec'; 
 
 const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
@@ -82,13 +83,14 @@ const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promis
   });
 };
 
-const formatDateShort = (dateStr: string) => {
+const formatDateMalay = (dateStr: string) => {
   if (!dateStr) return '';
   const date = new Date(dateStr);
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
+  const months = [
+    'Januari', 'Februari', 'Mac', 'April', 'Mei', 'Jun',
+    'Julai', 'Ogos', 'September', 'Oktober', 'November', 'Disember'
+  ];
+  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 };
 
 const App: React.FC = () => {
@@ -390,7 +392,7 @@ const ActivityList: React.FC<{ activities: ActivityRecord[]; onView: (a: Activit
             <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase rounded-lg mb-1.5 inline-block">{a.category}</span>
             <h4 className="font-black text-slate-900 text-xl uppercase tracking-tight leading-tight">{a.title}</h4>
             <div className="flex flex-wrap justify-center md:justify-start gap-4 text-xs font-bold text-slate-400 mt-2">
-              <span className="flex items-center gap-1.5 uppercase"><Calendar size={14} /> {formatDateShort(a.date)}</span>
+              <span className="flex items-center gap-1.5 uppercase"><Calendar size={14} /> {formatDateMalay(a.date)}</span>
               <span className="flex items-center gap-1.5 uppercase"><MapPin size={14} /> {a.venue || '-'}</span>
             </div>
           </div>
@@ -410,6 +412,7 @@ const ActivityForm: React.FC<{ onSave: (a: ActivityRecord) => void; initialData?
     title: '', date: new Date().toISOString().split('T')[0], time: '', venue: '', category: 'Kurikulum', objective: [''], impact: '', photos: [], reporterName: '', reporterPosition: '' 
   });
   const [isUploading, setIsUploading] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -430,8 +433,29 @@ const ActivityForm: React.FC<{ onSave: (a: ActivityRecord) => void; initialData?
     }
   };
 
+  const handleAIGenerate = async () => {
+    if (!formData.title) {
+      alert('Sila masukkan Tajuk Program terlebih dahulu untuk rujukan AI.');
+      return;
+    }
+    setIsGeneratingAI(true);
+    try {
+      const result = await generateAIImpact(
+        formData.title || '',
+        formData.category || 'Kurikulum',
+        formData.objective || []
+      );
+      setFormData(prev => ({ ...prev, impact: result }));
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menjana refleksi AI. Sila cuba lagi sebentar.');
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSave(formData as ActivityRecord); }} className="max-w-4xl mx-auto bg-white p-10 md:p-14 rounded-[3rem] border border-slate-200 shadow-xl space-y-10 relative">
+    <form onSubmit={(e) => { e.preventDefault(); onSave(formData as ActivityRecord); }} className="max-w-4xl mx-auto bg-white p-10 md:p-14 rounded-[3rem] border border-slate-200 shadow-xl space-y-10">
       <div className="flex justify-between items-start">
         <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Daftar Laporan OPR</h3>
       </div>
@@ -448,12 +472,23 @@ const ActivityForm: React.FC<{ onSave: (a: ActivityRecord) => void; initialData?
       </div>
       <FormGroup label="Objektif (Satu baris satu objektif)"><textarea className="w-full px-6 py-4 bg-slate-50 border rounded-2xl font-medium h-32 outline-none" value={formData.objective?.join('\n')} onChange={e => setFormData({...formData, objective: e.target.value.split('\n')})} /></FormGroup>
       <FormGroup label="Impak & Refleksi">
-        <textarea 
-          className="w-full px-6 py-4 bg-slate-900 text-white rounded-2xl font-medium h-40 outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all" 
-          value={formData.impact} 
-          onChange={e => setFormData({...formData, impact: e.target.value})} 
-          placeholder="Tulis refleksi program di sini..."
-        />
+        <div className="relative group">
+          <textarea 
+            className="w-full px-6 py-4 bg-slate-900 text-white rounded-2xl font-medium h-40 outline-none focus:ring-4 focus:ring-indigo-500/20 transition-all pr-32" 
+            value={formData.impact} 
+            onChange={e => setFormData({...formData, impact: e.target.value})} 
+            placeholder="Tulis refleksi program di sini atau gunakan Penjana AI..."
+          />
+          <button 
+            type="button"
+            disabled={isGeneratingAI}
+            onClick={handleAIGenerate}
+            className="absolute bottom-4 right-4 flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed z-10"
+          >
+            {isGeneratingAI ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} className="fill-white" />}
+            {isGeneratingAI ? 'Menjana...' : 'Penjana AI'}
+          </button>
+        </div>
       </FormGroup>
       <div className="space-y-4">
         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Foto Evidens (Maks 4)</label>
@@ -472,24 +507,9 @@ const ActivityForm: React.FC<{ onSave: (a: ActivityRecord) => void; initialData?
           )}
         </div>
       </div>
-      
-      {/* Action Buttons as Icons only */}
-      <div className="flex justify-end gap-4 pt-6">
-        <button 
-          type="button" 
-          onClick={onCancel} 
-          className="p-5 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200 transition-all shadow-md flex items-center justify-center"
-          title="Batal"
-        >
-          <X size={28} />
-        </button>
-        <button 
-          type="submit" 
-          className="p-5 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-all shadow-lg flex items-center justify-center"
-          title="Simpan Laporan"
-        >
-          <Save size={28} />
-        </button>
+      <div className="flex gap-4 pt-6">
+        <button type="submit" className="flex-[2] bg-indigo-600 text-white font-black py-5 rounded-2xl text-lg uppercase tracking-widest shadow-xl">SIMPAN LAPORAN</button>
+        <button type="button" onClick={onCancel} className="flex-1 bg-slate-100 text-slate-600 font-bold py-5 rounded-2xl uppercase tracking-widest">BATAL</button>
       </div>
     </form>
   );
@@ -530,12 +550,13 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
         scale: 4, 
         useCORS: true, 
         backgroundColor: '#ffffff',
-        windowWidth: 794,
-        windowHeight: 1123
+        windowWidth: 794, // 210mm @ 96dpi
+        windowHeight: 1123 // 297mm @ 96dpi
       }, 
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true } 
     };
     try {
+      // Use standard check for global html2pdf variable
       if (typeof html2pdf !== 'undefined') {
         await html2pdf().from(reportRef.current).set(opt).save();
       } else {
@@ -580,30 +601,17 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
       <div className="no-print flex flex-wrap items-center justify-between gap-4">
         <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-black hover:text-indigo-600 group transition-colors">
           <div className="p-2 bg-white rounded-xl border group-hover:bg-indigo-50 shadow-sm"><ChevronLeft size={20} /></div>
-          KEMBALI
+          KEMBALI KE SENARAI
         </button>
-        <div className="flex gap-4">
-          <button 
-            onClick={onEdit} 
-            className="p-4 bg-white text-orange-600 border border-orange-200 rounded-2xl hover:bg-orange-50 transition-all shadow-sm flex items-center justify-center"
-            title="Edit Laporan"
-          >
-            <Edit3 size={22} />
+        <div className="flex gap-3">
+          <button onClick={onEdit} className="px-6 py-4 bg-white text-orange-600 border border-orange-200 rounded-2xl text-xs font-black flex items-center gap-2 shadow-sm">
+            <Edit3 size={18} /> EDIT LAPORAN
           </button>
-          <button 
-            disabled={isDownloading} 
-            onClick={handleDownloadPDF} 
-            className="p-4 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-lg flex items-center justify-center"
-            title="Muat Turun PDF"
-          >
-            {isDownloading ? <Loader2 className="animate-spin" size={22} /> : <Download size={22} />}
+          <button disabled={isDownloading} onClick={handleDownloadPDF} className="px-6 py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg">
+            {isDownloading ? <Loader2 className="animate-spin" size={18} /> : <><Download size={18} /> MUAT TURUN PDF</>}
           </button>
-          <button 
-            onClick={() => window.print()} 
-            className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center"
-            title="Cetak Laporan"
-          >
-            <Printer size={22} />
+          <button onClick={() => window.print()} className="px-6 py-4 bg-slate-900 text-white rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg">
+            <Printer size={18} /> CETAK LAPORAN
           </button>
         </div>
       </div>
@@ -655,7 +663,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
                     </div>
                     <div className="min-w-0">
                       <span className="block text-[7px] font-black text-slate-400 tracking-widest uppercase">TARIKH</span>
-                      <span className="text-[10px] font-bold text-slate-800 block truncate">{formatDateShort(activity.date)}</span>
+                      <span className="text-[10px] font-bold text-slate-800 block truncate">{formatDateMalay(activity.date)}</span>
                     </div>
                   </div>
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-3">
@@ -751,12 +759,12 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
               </div>
             </div>
             <div className="text-center">
-              <p className="text-xs font-black text-indigo-600 tracking-[0.4em] uppercase">#SKLaksianTERBAIK</p>
+              <p className="text-[11px] font-black text-indigo-600 tracking-[0.4em] uppercase">#SKLaksianTERBAIK</p>
               <div className="h-0.5 bg-indigo-50 w-full mt-2 rounded-full overflow-hidden"><div className="h-full w-2/3 bg-indigo-600 rounded-full mx-auto" /></div>
             </div>
             <div className="text-right flex flex-col items-end gap-1">
               <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 tracking-widest uppercase leading-none"><CheckCircle2 size={12} className="text-emerald-500" /> SISTEM OPR V2.0</div>
-              <p className="text-[8px] text-slate-300 font-bold italic uppercase tracking-tighter">DIJANA: {new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+              <p className="text-[8px] text-slate-300 font-bold italic uppercase tracking-tighter">DIJANA: {new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
             </div>
           </div>
         </div>
