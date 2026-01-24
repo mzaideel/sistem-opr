@@ -82,6 +82,7 @@
             box-sizing: border-box;
             font-family: "Inter", sans-serif;
             position: relative;
+            z-index: 10;
         }
 
         /* Wrapper untuk Penskalaan Paparan Web */
@@ -92,6 +93,7 @@
             width: 100%; 
             padding: 2rem 0;
             overflow: visible;
+            position: relative;
         }
 
         /* Corak grid latar belakang yang sangat halus */
@@ -102,6 +104,18 @@
 
         .auto-font {
             transition: font-size 0.2s ease;
+        }
+
+        /* Memastikan butang dalam iframe boleh diklik dengan jelas */
+        .action-bar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background-color: rgba(248, 250, 252, 0.9);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 0;
+            margin-bottom: 1rem;
         }
     </style>
 

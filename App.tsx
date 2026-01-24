@@ -481,21 +481,26 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
   useEffect(() => {
     const handleResize = () => {
       if (wrapperRef.current) {
-        const availableWidth = wrapperRef.current.offsetWidth - 32; 
+        // Safety check to avoid scale 0 in embed
+        const availableWidth = Math.max(wrapperRef.current.offsetWidth, 320) - 32; 
         const targetWidth = 210 * 3.7795275591; // 210mm in px @ 96dpi
         setScale(Math.min(1, availableWidth / targetWidth));
       }
     };
     handleResize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    // Extra delay for iframe loading
+    const timer = setTimeout(handleResize, 500);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timer);
+    };
   }, []);
 
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return;
     setIsDownloading(true);
 
-    // CRITICAL: Temporarily reset transformation and scaling for high-fidelity capture
     const originalTransform = reportRef.current.style.transform;
     const originalMarginBottom = reportRef.current.style.marginBottom;
     
@@ -507,7 +512,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
       filename: `OPR_${activity.title.replace(/\s+/g, '_')}_${formatDateShort(activity.date).replace(/\//g, '-')}.pdf`, 
       image: { type: 'jpeg', quality: 1.0 }, 
       html2canvas: { 
-        scale: 4, // High Resolution DPI 300 equivalent
+        scale: 4,
         useCORS: true, 
         backgroundColor: '#ffffff',
         letterRendering: true,
@@ -520,17 +525,22 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
       if (typeof html2pdf !== 'undefined') {
         await html2pdf().from(reportRef.current).set(opt).save();
       } else {
-        window.print();
+        handlePrint();
       }
     } catch (err) { 
       console.error(err);
-      window.print(); 
+      handlePrint(); 
     } finally { 
-      // RESTORE display scaling
       reportRef.current.style.transform = originalTransform;
       reportRef.current.style.marginBottom = originalMarginBottom;
       setIsDownloading(false); 
     }
+  };
+
+  const handlePrint = () => {
+    // Force focus for iframe environments
+    window.focus();
+    window.print();
   };
 
   const getReportNumber = () => {
@@ -556,7 +566,6 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
     }
   };
 
-  // Heuristic Font Scaling for Single Page Integrity
   const getTitleFontSize = (text: string) => {
     const len = text.length;
     if (len > 180) return '0.75rem';
@@ -586,18 +595,21 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
   const currentYear = new Date().getFullYear();
 
   return (
-    <div className="space-y-8 pb-20 max-w-full">
-      <div className="no-print flex flex-wrap items-center justify-between gap-4">
-        <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-black hover:text-indigo-600 group transition-colors">
-          <div className="p-2 bg-white rounded-xl border group-hover:bg-indigo-50 shadow-sm"><ChevronLeft size={20} /></div>
-          KEMBALI
-        </button>
-        <div className="flex gap-4">
-          <button onClick={onEdit} className="p-4 bg-white text-orange-600 border border-orange-200 rounded-2xl hover:bg-orange-50 transition-all shadow-sm flex items-center justify-center" title="Edit Laporan"><Edit3 size={22} /></button>
-          <button disabled={isDownloading} onClick={handleDownloadPDF} className="p-4 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-lg flex items-center justify-center" title="Muat Turun PDF">
-            {isDownloading ? <Loader2 className="animate-spin" size={22} /> : <Download size={22} />}
+    <div className="flex flex-col h-full overflow-visible">
+      {/* Sticky Action Bar for Embed Stability */}
+      <div className="no-print action-bar">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-4 md:px-0">
+          <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-black hover:text-indigo-600 group transition-colors z-[60]">
+            <div className="p-2 bg-white rounded-xl border group-hover:bg-indigo-50 shadow-sm"><ChevronLeft size={20} /></div>
+            KEMBALI
           </button>
-          <button onClick={() => window.print()} className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center" title="Cetak Laporan"><Printer size={22} /></button>
+          <div className="flex gap-4 z-[60]">
+            <button onClick={onEdit} className="p-4 bg-white text-orange-600 border border-orange-200 rounded-2xl hover:bg-orange-50 transition-all shadow-sm flex items-center justify-center" title="Edit Laporan"><Edit3 size={22} /></button>
+            <button disabled={isDownloading} onClick={handleDownloadPDF} className="p-4 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-lg flex items-center justify-center" title="Muat Turun PDF">
+              {isDownloading ? <Loader2 className="animate-spin" size={22} /> : <Download size={22} />}
+            </button>
+            <button onClick={handlePrint} className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center" title="Cetak Laporan"><Printer size={22} /></button>
+          </div>
         </div>
       </div>
 
@@ -632,7 +644,6 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
           </div>
 
           <div className="grid grid-cols-12 gap-8 flex-1 overflow-hidden min-h-0">
-            {/* Left Column */}
             <div className="col-span-6 border-r border-slate-100 pr-8 space-y-6 flex flex-col min-h-0">
               <section className="bg-indigo-50/80 p-5 rounded-[1.5rem] border border-indigo-100/50 shrink-0">
                 <h2 className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
@@ -704,7 +715,6 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
               </div>
             </div>
 
-            {/* Right Column (Visual Evidence) */}
             <div className="col-span-6 flex flex-col h-full min-h-0 overflow-hidden">
               <div className="flex items-center justify-between mb-4 pb-2 border-b-2 border-slate-100 shrink-0">
                 <h2 className="text-[10px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><div className="w-1 h-5 bg-slate-900 rounded-full" /> EVIDENS VISUAL PROGRAM</h2>
@@ -727,7 +737,6 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
             </div>
           </div>
 
-          {/* Footer Section */}
           <div className="mt-8 pt-6 border-t-2 border-slate-100 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-4">
               <div className="p-2.5 bg-slate-900 rounded-xl shadow-lg"><Award size={18} className="text-white" /></div>
