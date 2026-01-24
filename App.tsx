@@ -85,10 +85,10 @@ const resizeImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promis
 const formatDateShort = (dateStr: string) => {
   if (!dateStr) return '';
   const date = new Date(dateStr);
-  const d = String(date.getDate()).padStart(2, '0');
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const y = date.getFullYear();
-  return `${d}/${m}/${y}`;
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 };
 
 const App: React.FC = () => {
@@ -473,19 +473,19 @@ const ActivityForm: React.FC<{ onSave: (a: ActivityRecord) => void; initialData?
         </div>
       </div>
       
-      {/* Action Buttons as Icons */}
+      {/* Action Buttons as Icons only */}
       <div className="flex justify-end gap-4 pt-6">
         <button 
           type="button" 
           onClick={onCancel} 
-          className="p-5 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200 transition-all shadow-md"
+          className="p-5 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200 transition-all shadow-md flex items-center justify-center"
           title="Batal"
         >
           <X size={28} />
         </button>
         <button 
           type="submit" 
-          className="p-5 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-all shadow-lg"
+          className="p-5 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-all shadow-lg flex items-center justify-center"
           title="Simpan Laporan"
         >
           <Save size={28} />
@@ -521,6 +521,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return;
     setIsDownloading(true);
+    // Strict A4 single page configuration
     const opt = { 
       margin: 0, 
       filename: `OPR_${activity.title.replace(/\s+/g, '_')}.pdf`, 
@@ -584,7 +585,7 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
         <div className="flex gap-4">
           <button 
             onClick={onEdit} 
-            className="p-4 bg-white text-orange-600 border border-orange-200 rounded-2xl hover:bg-orange-50 transition-all shadow-sm"
+            className="p-4 bg-white text-orange-600 border border-orange-200 rounded-2xl hover:bg-orange-50 transition-all shadow-sm flex items-center justify-center"
             title="Edit Laporan"
           >
             <Edit3 size={22} />
@@ -592,14 +593,14 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
           <button 
             disabled={isDownloading} 
             onClick={handleDownloadPDF} 
-            className="p-4 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-lg"
+            className="p-4 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-lg flex items-center justify-center"
             title="Muat Turun PDF"
           >
             {isDownloading ? <Loader2 className="animate-spin" size={22} /> : <Download size={22} />}
           </button>
           <button 
             onClick={() => window.print()} 
-            className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-lg"
+            className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-lg flex items-center justify-center"
             title="Cetak Laporan"
           >
             <Printer size={22} />
@@ -750,12 +751,12 @@ const OPRDetail: React.FC<{ activity: ActivityRecord; allActivities: ActivityRec
               </div>
             </div>
             <div className="text-center">
-              <p className="text-[11px] font-black text-indigo-600 tracking-[0.4em] uppercase">#SKLaksianTERBAIK</p>
+              <p className="text-xs font-black text-indigo-600 tracking-[0.4em] uppercase">#SKLaksianTERBAIK</p>
               <div className="h-0.5 bg-indigo-50 w-full mt-2 rounded-full overflow-hidden"><div className="h-full w-2/3 bg-indigo-600 rounded-full mx-auto" /></div>
             </div>
             <div className="text-right flex flex-col items-end gap-1">
               <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 tracking-widest uppercase leading-none"><CheckCircle2 size={12} className="text-emerald-500" /> SISTEM OPR V2.0</div>
-              <p className="text-[8px] text-slate-300 font-bold italic uppercase tracking-tighter">DIJANA: {new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+              <p className="text-[8px] text-slate-300 font-bold italic uppercase tracking-tighter">DIJANA: {new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
             </div>
           </div>
         </div>
